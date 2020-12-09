@@ -6,6 +6,6 @@ namespace SportingSolutions.Udapi.Sdk.Model.Message
     {
         public string Id { get; set; }
         public string Message { get; set; }
-	    public DateTime ReceivedAt { get; set; }
-	}
+        public DateTime ReceivedAt { get; set; }
+    }
 }

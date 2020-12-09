@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -12,47 +13,12 @@
 //See the License for the specific language governing permissions and
 //limitations under the License.
 
-using SportingSolutions.Udapi.Sdk.Actors;
 using SportingSolutions.Udapi.Sdk.Clients;
-using SportingSolutions.Udapi.Sdk.Model.Message;
-using System.Net;
 
 namespace SportingSolutions.Udapi.Sdk
 {
-    public class UDAPI
+    public static class UDAPI
     {
-        // this is to make optional the call to Init()
-        static UDAPI()
-        {
-            //this is to avoid security error if SDK is compiled against .Net 4.5
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-
-            Configuration = Clients.Configuration.Instance;
-        }
-
-        public static void SdkActroSystemInit()
-        {
-            SdkActorSystem.Init();
-        }
-
-
-        public static void Init()
-        {
-            Init(Clients.Configuration.Instance);
-        }
-
-        public static void Init(IConfiguration configuration)
-        {
-            Configuration = configuration ?? Clients.Configuration.Instance;
-            SdkActorSystem.Init();
-        }
-
-        public static void Dispose()
-        {
-            SdkActorSystem.InitializeActors = true;
-            SdkActorSystem.ActorSystem.ActorSelection(SdkActorSystem.StreamControllerActorPath).Tell(new DisposeMessage());
-        }
-
-        public static IConfiguration Configuration { get; set; }
+        public static IConfiguration Configuration => Clients.Configuration.Instance;
     }
 }

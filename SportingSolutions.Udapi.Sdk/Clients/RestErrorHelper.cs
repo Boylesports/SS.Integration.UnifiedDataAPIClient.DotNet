@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -15,27 +16,27 @@
 using System.Linq;
 using System.Text;
 using RestSharp;
-using log4net;
+using Microsoft.Extensions.Logging;
 
 namespace SportingSolutions.Udapi.Sdk.Clients
 {
     public class RestErrorHelper
     {
-        public static void LogRestError(ILog logger, IRestResponse restResponse, string errorHeading)
+        public static void LogRestError(ILogger logger, IRestResponse restResponse, string errorHeading)
         {
             if (logger != null && restResponse != null)
             {
                 var stringBuilder = BuildLoggingString(restResponse, errorHeading);
-                logger.Error(stringBuilder.ToString());
+                logger.LogError(stringBuilder.ToString());
             }
         }
 
-        public static void LogRestWarn(ILog logger, IRestResponse restResponse, string warnHeading)
+        public static void LogRestWarn(ILogger logger, IRestResponse restResponse, string warnHeading)
         {
             if (logger != null && restResponse != null)
             {
                 var stringBuilder = BuildLoggingString(restResponse, warnHeading);
-                logger.Warn(stringBuilder.ToString());
+                logger.LogWarning(stringBuilder.ToString());
             }
         }
 

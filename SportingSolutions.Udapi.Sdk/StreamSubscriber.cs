@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -13,14 +14,14 @@
 //limitations under the License.
 
 
-using System;
-using System.Text;
 using Akka.Actor;
-using log4net;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
 using SportingSolutions.Udapi.Sdk.Interfaces;
 using SportingSolutions.Udapi.Sdk.Model.Message;
+using System;
+using System.Text;
 
 
 namespace SportingSolutions.Udapi.Sdk
@@ -28,16 +29,18 @@ namespace SportingSolutions.Udapi.Sdk
 
     internal class StreamSubscriber : DefaultBasicConsumer, IStreamSubscriber
     {
-        private readonly ILog _logger = LogManager.GetLogger(typeof(StreamSubscriber));
+        public IConsumer Consumer { get; }
+        public IActorRef Dispatcher { get; }
+        private ILogger<StreamSubscriber> Logger { get; }
+        private string ConsumerTag => Consumer.Id;
 
         internal bool IsStreamingStopped => Model == null || !Model.IsOpen || _isCanceled;
         private bool _isCanceled = false;
 
-        public StreamSubscriber(IModel model, IConsumer consumer, IActorRef dispatcher)
+        public StreamSubscriber(IModel model, IConsumer consumer, IActorRef dispatcher, ILogger<StreamSubscriber> log)
             : base(model)
         {
             Consumer = consumer;
-            ConsumerTag = consumer.Id;
             Dispatcher = dispatcher;
         }
 
@@ -51,7 +54,7 @@ namespace SportingSolutions.Udapi.Sdk
             }
             catch (Exception e)
             {
-                _logger.Error("Error starting stream for consumerId=" + ConsumerTag, e);
+                Logger.LogError("Error starting stream for consumerId=" + ConsumerTag, e);
                 throw;
             }
         }
@@ -68,69 +71,59 @@ namespace SportingSolutions.Udapi.Sdk
             }
             catch (AlreadyClosedException e)
             {
-                _logger.Warn($"Connection already closed for consumerId={ConsumerTag} , \n {e}");
+                Logger.LogWarning($"Connection already closed for consumerId={ConsumerTag} , \n {e}");
             }
 
             catch (ObjectDisposedException e)
             {
-                _logger.Warn("Stop stream called for already disposed object for consumerId=" + ConsumerTag, e);
+                Logger.LogWarning("Stop stream called for already disposed object for consumerId=" + ConsumerTag, e);
             }
 
             catch (TimeoutException e)
             {
-                _logger.Warn($"RabbitMQ timeout on StopStreaming for consumerId={ConsumerTag} {e}");
+                Logger.LogWarning($"RabbitMQ timeout on StopStreaming for consumerId={ConsumerTag} {e}");
             }
 
             catch (Exception e)
             {
-                _logger.Error("Error stopping stream for consumerId=" + ConsumerTag, e);
+                Logger.LogError("Error stopping stream for consumerId=" + ConsumerTag, e);
             }
             finally
             {
-                _logger.DebugFormat("Streaming stopped for consumerId={0}", ConsumerTag);
+                Logger.LogDebug("Streaming stopped for consumerId={0}", ConsumerTag);
             }
         }
 
-        public IConsumer Consumer { get; }
-
-        public IActorRef Dispatcher { get; }
-
-        #region DefaultBasicConsumer
-
         public override void HandleBasicConsumeOk(string consumerTag)
         {
-            _logger.Debug($"HandleBasicConsumeOk consumerTag={consumerTag ?? "null"}");
+            Logger.LogDebug($"HandleBasicConsumeOk consumerTag={consumerTag ?? "null"}");
             Dispatcher.Tell(new NewSubscriberMessage { Subscriber = this });
 
             base.HandleBasicConsumeOk(consumerTag);
         }
 
-        public override void HandleBasicDeliver(string consumerTag, ulong deliveryTag, bool redelivered, string exchange, string routingKey, IBasicProperties properties, byte[] body)
+        public override void HandleBasicDeliver(string consumerTag, ulong deliveryTag, bool redelivered, string exchange, string routingKey, IBasicProperties properties, ReadOnlyMemory<byte> body)
         {
             if (!IsRunning)
                 return;
 
-            _logger.Debug(
+            Logger.LogDebug(
                 "HandleBasicDeliver" +
                 $" consumerTag={consumerTag ?? "null"}" +
                 $" deliveryTag={deliveryTag}" +
                 $" redelivered={redelivered}" +
                 $" exchange={exchange ?? "null"}" +
                 $" routingKey={routingKey ?? "null"}" +
-                (body == null ? " body=null" : $" bodyLength={body.Length}"));
+                (body.IsEmpty ? " body=null" : $" bodyLength={body.Length}"));
 
-            Dispatcher.Tell(new StreamUpdateMessage { Id = consumerTag, Message = Encoding.UTF8.GetString(body), ReceivedAt = DateTime.UtcNow });
+            Dispatcher.Tell(new StreamUpdateMessage { Id = consumerTag, Message = Encoding.UTF8.GetString(body.ToArray()), ReceivedAt = DateTime.UtcNow });
         }
 
         public override void HandleBasicCancel(string consumerTag)
         {
-            _logger.Debug($"HandleBasicCancel consumerTag={consumerTag ?? "null"}");
+            Logger.LogDebug($"HandleBasicCancel consumerTag={consumerTag ?? "null"}");
             base.HandleBasicCancel(consumerTag);
             Dispatcher.Tell(new RemoveSubscriberMessage { Subscriber = this });
         }
-
-        #endregion
-
-
     }
 }

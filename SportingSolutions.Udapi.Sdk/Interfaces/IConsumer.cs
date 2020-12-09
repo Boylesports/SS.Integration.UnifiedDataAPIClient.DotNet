@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -14,6 +15,7 @@
 
 
 using SportingSolutions.Udapi.Sdk.Events;
+using System.Threading.Tasks;
 
 namespace SportingSolutions.Udapi.Sdk.Interfaces
 {
@@ -30,5 +32,7 @@ namespace SportingSolutions.Udapi.Sdk.Interfaces
         void OnStreamEvent(StreamEventArgs e);
 
         void SendEcho();
+
+        Task SendEchoAsync();
     }
 }

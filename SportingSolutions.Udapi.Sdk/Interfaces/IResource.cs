@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -13,6 +14,7 @@
 //limitations under the License.
 
 using System;
+using System.Threading.Tasks;
 using SportingSolutions.Udapi.Sdk.Events;
 using SportingSolutions.Udapi.Sdk.Model;
 
@@ -71,6 +73,12 @@ namespace SportingSolutions.Udapi.Sdk.Interfaces
         /// </summary>
         /// <returns></returns>
         string GetSnapshot();
+
+        /// <summary>
+        ///     Retrieves the current resource's snapshot
+        /// </summary>
+        /// <returns></returns>
+        Task<string> GetSnapshotAsync();
 
         /// <summary>
         ///     Connect the resource to the streaming service.

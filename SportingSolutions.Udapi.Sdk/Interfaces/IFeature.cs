@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -13,6 +14,7 @@
 //limitations under the License.
 
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SportingSolutions.Udapi.Sdk.Interfaces
 {
@@ -28,7 +30,14 @@ namespace SportingSolutions.Udapi.Sdk.Interfaces
         ///     for this feature
         /// </summary>
         /// <returns></returns>
-        List<IResource> GetResources();
+        IEnumerable<IResource> GetResources();
+
+        /// <summary>
+        ///     Returns the list of published resources
+        ///     for this feature
+        /// </summary>
+        /// <returns></returns>
+        Task<IEnumerable<IResource>> GetResourcesAsync();
 
         /// <summary>
         ///     Returns the resource associated
@@ -40,5 +49,16 @@ namespace SportingSolutions.Udapi.Sdk.Interfaces
         /// <param name="name"></param>
         /// <returns></returns>
         IResource GetResource(string name);
+
+        /// <summary>
+        ///     Returns the resource associated
+        ///     to the given name.
+        /// 
+        ///     It returns null if the the 
+        ///     resource doesn't exist
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        Task<IResource> GetResourceAsync(string name);
     }
 }

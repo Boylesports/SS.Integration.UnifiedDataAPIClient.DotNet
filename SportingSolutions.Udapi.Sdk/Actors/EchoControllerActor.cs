@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -12,16 +13,15 @@
 //See the License for the specific language governing permissions and
 //limitations under the License.
 
-
+using Akka.Actor;
+using Microsoft.Extensions.Logging;
+using SportingSolutions.Udapi.Sdk.Interfaces;
+using SportingSolutions.Udapi.Sdk.Model.Message;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Remoting.Contexts;
-using Akka.Actor;
-using log4net;
-using SportingSolutions.Udapi.Sdk.Interfaces;
-using SportingSolutions.Udapi.Sdk.Model.Message;
+using System.Threading.Tasks;
 
 namespace SportingSolutions.Udapi.Sdk.Actors
 {
@@ -30,22 +30,19 @@ namespace SportingSolutions.Udapi.Sdk.Actors
         private class EchoEntry
         {
             public IStreamSubscriber Subscriber;
-            public int  EchosCountDown;
+            public int EchosCountDown;
         }
 
         public const string ActorName = "EchoControllerActor";
 
-        private readonly ILog _logger = LogManager.GetLogger(typeof(EchoControllerActor));
-
-
-        
-
+        private ILogger Logger { get; }
 
         private readonly ConcurrentDictionary<string, EchoEntry> _consumers;
         private readonly ICancelable _echoCancellation = new Cancelable(Context.System.Scheduler);
 
-        public EchoControllerActor()
+        public EchoControllerActor(ILogger<EchoControllerActor> logger)
         {
+            Logger = logger;
             Enabled = UDAPI.Configuration.UseEchos;
             _consumers = new ConcurrentDictionary<string, EchoEntry>();
 
@@ -60,20 +57,18 @@ namespace SportingSolutions.Udapi.Sdk.Actors
                     ActorRefs.Nobody);
             }
 
-            _logger.DebugFormat("EchoSender is {0}", Enabled ? "enabled" : "disabled");
+            Logger.LogDebug("EchoSender is {0}", Enabled ? "enabled" : "disabled");
 
             Receive<NewSubscriberMessage>(x => AddConsumer(x.Subscriber));
             Receive<RemoveSubscriberMessage>(x => RemoveConsumer(x.Subscriber));
             Receive<EchoMessage>(x => ProcessEcho(x.Id));
-            Receive<SendEchoMessage>(x => CheckEchos());
+            ReceiveAsync<SendEchoMessage>(x => CheckEchosAsync());
             Receive<DisposeMessage>(x => Dispose());
         }
 
-
-
         protected override void PreRestart(Exception reason, object message)
         {
-            _logger.Error(
+            Logger.LogError(
                 $"Actor restart reason exception={reason?.ToString() ?? "null"}." +
                 (message != null
                     ? $" last processing messageType={message.GetType().Name}"
@@ -104,7 +99,7 @@ namespace SportingSolutions.Udapi.Sdk.Actors
                 EchosCountDown = UDAPI.Configuration.MissedEchos
             };
 
-            _logger.DebugFormat("consumerId={0} added to echos manager", subscriber.Consumer.Id);
+            Logger.LogDebug("consumerId={0} added to echos manager", subscriber.Consumer.Id);
         }
 
         public void ResetAll()
@@ -126,7 +121,7 @@ namespace SportingSolutions.Udapi.Sdk.Actors
 
             EchoEntry tmp;
             if (_consumers.TryRemove(subscriber.Consumer.Id, out tmp))
-                _logger.DebugFormat("consumerId={0} removed from echos manager", subscriber.Consumer.Id);
+                Logger.LogDebug("consumerId={0} removed from echos manager", subscriber.Consumer.Id);
         }
 
         public void RemoveAll()
@@ -143,7 +138,7 @@ namespace SportingSolutions.Udapi.Sdk.Actors
             if (!string.IsNullOrEmpty(subscriberId) && _consumers.TryGetValue(subscriberId, out entry))
             {
                 if (UDAPI.Configuration.VerboseLogging)
-                    _logger.DebugFormat("Resetting echo information for fixtureId={0}", subscriberId);
+                    Logger.LogDebug("Resetting echo information for fixtureId={0}", subscriberId);
 
                 entry.EchosCountDown = UDAPI.Configuration.MissedEchos;
             }
@@ -157,32 +152,32 @@ namespace SportingSolutions.Udapi.Sdk.Actors
 
                 // acquiring the consumer here prevents to put another lock on the
                 // dictionary
-                
-                _logger.Info($"CheckEchos consumersCount={_consumers.Count}");
 
-	            IStreamSubscriber sendEchoConsumer = _consumers.Values.FirstOrDefault(_ => _.EchosCountDown > 0)?.Subscriber;
+                Logger.LogInformation($"CheckEchos consumersCount={_consumers.Count}");
 
-				foreach (var consumer in _consumers)
+                IStreamSubscriber sendEchoConsumer = _consumers.Values.FirstOrDefault(_ => _.EchosCountDown > 0)?.Subscriber;
+
+                foreach (var consumer in _consumers)
                 {
                     if (consumer.Value.EchosCountDown < UDAPI.Configuration.MissedEchos)
                     {
                         var msg = $"consumerId={consumer.Key} missed count={UDAPI.Configuration.MissedEchos - consumer.Value.EchosCountDown} echos";
                         if (consumer.Value.EchosCountDown < 1)
                         {
-                            _logger.Warn($"{msg} and it will be disconnected");
+                            Logger.LogWarning($"{msg} and it will be disconnected");
                             invalidConsumers.Add(consumer.Value.Subscriber);
                         }
                         else
                         {
-                            _logger.Info(msg);
+                            Logger.LogInformation(msg);
                         }
                     }
                     consumer.Value.EchosCountDown--;
                 }
-				
-				// this wil force indirectly a call to EchoManager.RemoveConsumer(consumer)
-				// for the invalid consumers
-				RemoveSubribers(invalidConsumers);
+
+                // this wil force indirectly a call to EchoManager.RemoveConsumer(consumer)
+                // for the invalid consumers
+                RemoveSubribers(invalidConsumers);
 
                 invalidConsumers.Clear();
 
@@ -190,7 +185,52 @@ namespace SportingSolutions.Udapi.Sdk.Actors
             }
             catch (Exception ex)
             {
-                _logger.Error("Check Echos has experienced a failure", ex);
+                Logger.LogError("Check Echos has experienced a failure", ex);
+            }
+        }
+
+        private async Task CheckEchosAsync()
+        {
+            try
+            {
+                List<IStreamSubscriber> invalidConsumers = new List<IStreamSubscriber>();
+
+                // acquiring the consumer here prevents to put another lock on the
+                // dictionary
+
+                Logger.LogInformation($"CheckEchos consumersCount={_consumers.Count}");
+
+                IStreamSubscriber sendEchoConsumer = _consumers.Values.FirstOrDefault(_ => _.EchosCountDown > 0)?.Subscriber;
+
+                foreach (var consumer in _consumers)
+                {
+                    if (consumer.Value.EchosCountDown < UDAPI.Configuration.MissedEchos)
+                    {
+                        var msg = $"consumerId={consumer.Key} missed count={UDAPI.Configuration.MissedEchos - consumer.Value.EchosCountDown} echos";
+                        if (consumer.Value.EchosCountDown < 1)
+                        {
+                            Logger.LogWarning($"{msg} and it will be disconnected");
+                            invalidConsumers.Add(consumer.Value.Subscriber);
+                        }
+                        else
+                        {
+                            Logger.LogInformation(msg);
+                        }
+                    }
+                    consumer.Value.EchosCountDown--;
+                }
+
+                // this wil force indirectly a call to EchoManager.RemoveConsumer(consumer)
+                // for the invalid consumers
+                RemoveSubribers(invalidConsumers);
+
+                invalidConsumers.Clear();
+
+                await SendEchosAsync(sendEchoConsumer);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError("Check Echos has experienced a failure", ex);
             }
         }
 
@@ -199,7 +239,7 @@ namespace SportingSolutions.Udapi.Sdk.Actors
             foreach (var s in subscribers)
             {
                 Context.ActorSelection(SdkActorSystem.StreamControllerActorPath).Tell(new RemoveConsumerMessage() { Consumer = s.Consumer });
-                Self.Tell(new RemoveSubscriberMessage() { Subscriber = s});
+                Self.Tell(new RemoveSubscriberMessage() { Subscriber = s });
             }
         }
 
@@ -211,27 +251,43 @@ namespace SportingSolutions.Udapi.Sdk.Actors
             }
             try
             {
-                _logger.DebugFormat("Sending batch echo");
+                Logger.LogDebug("Sending batch echo");
                 item.Consumer.SendEcho();
             }
             catch (Exception e)
             {
-                _logger.Error("Error sending echo-request", e);
+                Logger.LogError("Error sending echo-request", e);
+            }
+
+        }
+
+        private async Task SendEchosAsync(IStreamSubscriber item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+            try
+            {
+                Logger.LogDebug("Sending batch echo");
+                await item.Consumer.SendEchoAsync();
+            }
+            catch (Exception e)
+            {
+                Logger.LogError("Error sending echo-request", e);
             }
 
         }
 
         public void Dispose()
         {
-            _logger.DebugFormat("Disposing EchoSender");
+            Logger.LogDebug("Disposing EchoSender");
             _echoCancellation.Cancel();
-            
-            RemoveAll();
-            
-            _logger.InfoFormat("EchoSender correctly disposed");
-        }
 
-        #region Private messages
+            RemoveAll();
+
+            Logger.LogInformation("EchoSender correctly disposed");
+        }
 
         internal class SendEchoMessage
         {
@@ -248,7 +304,5 @@ namespace SportingSolutions.Udapi.Sdk.Actors
         }
 
         internal int ConsumerCount => _consumers.Count;
-
-        #endregion
     }
 }

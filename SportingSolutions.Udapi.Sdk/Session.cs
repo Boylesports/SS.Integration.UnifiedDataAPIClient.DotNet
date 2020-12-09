@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -23,37 +24,34 @@ using SportingSolutions.Udapi.Sdk.Exceptions;
 using SportingSolutions.Udapi.Sdk.Extensions;
 using SportingSolutions.Udapi.Sdk.Interfaces;
 using SportingSolutions.Udapi.Sdk.Model;
-using log4net;
+using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace SportingSolutions.Udapi.Sdk
 {
     public class Session : Endpoint, ISession
     {
-        internal Session(IConnectClient connectClient)
-            : base(connectClient)
+        private IMemoryCache Cache { get; }
+
+        internal Session(IConnectClient connectClient, ILogger<Endpoint> logger, IMemoryCache cache = default)
+            : base(connectClient, logger)
         {
-            Logger = LogManager.GetLogger(typeof(Session).ToString());
+            Cache = cache;
         }
 
-        public IList<IService> GetServices()
+        public IEnumerable<IService> GetServices()
         {
-            Logger.Debug("Get all available services...");
+            Logger.LogDebug("Get all available services...");
             var links = GetRoot();
-            if (links == null)
-                return new List<IService>();
-            
-            return links.Select(serviceRestItem => new Service(serviceRestItem, ConnectClient)).Cast<IService>().ToList();
+            return links?.Select(serviceRestItem => new Service(serviceRestItem, ConnectClient, Logger))?.Cast<IService>() ?? Enumerable.Empty<IService>();
         }
 
         public IService GetService(string name)
         {
-            Logger.DebugFormat("Get service={0}", name);
+            Logger.LogDebug("Get service={0}", name);
             var links = GetRoot();
-
-            if (links == null)
-                return null;
-
-            return links.Select(serviceRestItem => new Service(serviceRestItem, ConnectClient)).FirstOrDefault(service => service.Name == name);
+            return links?.Select(serviceRestItem => new Service(serviceRestItem, ConnectClient, Logger))?.FirstOrDefault(service => service.Name == name);
         }
 
         private IEnumerable<RestItem> GetRoot()
@@ -88,16 +86,74 @@ namespace SportingSolutions.Udapi.Sdk
             }
             catch (Exception ex)
             {
-                Logger.Error("GetRoot exception", ex);
+                Logger.LogError("GetRoot exception", ex);
                 throw;
             }
             finally
             {
-                Logger.Debug(messageStringBuilder);
+                Logger.LogError(messageStringBuilder.ToString());
                 stopwatch.Stop();
             }
 
             return null;
+        }
+
+        private async Task<IEnumerable<RestItem>> GetRootAsync()
+        {
+            var stopwatch = new Stopwatch();
+            var messageStringBuilder = new StringBuilder("GetRoot request...");
+            try
+            {
+                stopwatch.Start();
+
+                var getRootResponse = await ConnectClient.LoginAsync();
+                messageStringBuilder.AppendFormat("took {0}ms", stopwatch.ElapsedMilliseconds);
+                stopwatch.Restart();
+
+                if (getRootResponse.ErrorException != null || getRootResponse.Content == null)
+                {
+                    RestErrorHelper.LogRestError(Logger, getRootResponse, "GetRoot HTTP error");
+                    throw new Exception("Error calling GetRoot", getRootResponse.ErrorException);
+                }
+
+                if (getRootResponse.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    throw new NotAuthenticatedException("Username or password are incorrect");
+                }
+
+                if (getRootResponse.Content != null)
+                    return getRootResponse.Content.FromJson<List<RestItem>>();
+            }
+            catch (NotAuthenticatedException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError("GetRoot exception", ex);
+                throw;
+            }
+            finally
+            {
+                Logger.LogError(messageStringBuilder.ToString());
+                stopwatch.Stop();
+            }
+
+            return null;
+        }
+
+        public async Task<IService> GetServiceAsync(string name)
+        {
+            Logger.LogDebug("Get service={0}", name);
+            var links = await GetRootAsync();
+            return links?.Select(serviceRestItem => new Service(serviceRestItem, ConnectClient, Logger))?.FirstOrDefault(service => service.Name == name);
+        }
+
+        public async Task<IEnumerable<IService>> GetServicesAsync()
+        {
+            Logger.LogDebug("Get all available services...");
+            var links = await GetRootAsync();
+            return links?.Select(serviceRestItem => new Service(serviceRestItem, ConnectClient, Logger))?.Cast<IService>() ?? Enumerable.Empty<IService>();
         }
     }
 }

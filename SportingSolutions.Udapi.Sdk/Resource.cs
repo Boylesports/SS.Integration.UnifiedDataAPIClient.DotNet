@@ -1,4 +1,5 @@
-﻿//Copyright 2017 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2017 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -16,12 +17,13 @@ using System;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Web;
+using Microsoft.Extensions.Logging;
 using SportingSolutions.Udapi.Sdk.Clients;
 using SportingSolutions.Udapi.Sdk.Events;
 using SportingSolutions.Udapi.Sdk.Interfaces;
 using SportingSolutions.Udapi.Sdk.Model;
-using log4net;
 using SportingSolutions.Udapi.Sdk.Model.Message;
 
 namespace SportingSolutions.Udapi.Sdk
@@ -31,10 +33,7 @@ namespace SportingSolutions.Udapi.Sdk
         private const int DEFAULT_ECHO_INTERVAL_MS = 10000;
         private const int DEFAULT_ECHO_MAX_DELAY_MS = 3000;
 
-
         public event EventHandler Tick;
-
-        
 
         public event EventHandler StreamConnected;
         public event EventHandler StreamDisconnected;
@@ -46,17 +45,13 @@ namespace SportingSolutions.Udapi.Sdk
         private readonly ManualResetEvent _pauseStream;
         private string _virtualHost;
 
-        public Resource(RestItem restItem, IConnectClient client)
-            : base(restItem, client)
+        public Resource(RestItem restItem, IConnectClient client, ILogger<Endpoint> logger)
+            : base(restItem, client, logger)
         {
-            Logger = LogManager.GetLogger(typeof(Resource).ToString());
-            Logger.DebugFormat("Instantiated fixtureName=\"{0}\" fixtureId=\"{1}\"", restItem.Name, Id);
+            Logger.LogDebug("Instantiated fixtureName=\"{0}\" fixtureId=\"{1}\"", restItem.Name, Id);
 
             _pauseStream = new ManualResetEvent(true);
         }
-
-
-        #region IResource Members
 
         public string Id
         {
@@ -75,23 +70,33 @@ namespace SportingSolutions.Udapi.Sdk
 
         public bool IsDisposed { get; internal set; }
 
-        
-
         public string GetSnapshot()
         {
-            
+
             var loggingStringBuilder = new StringBuilder();
             loggingStringBuilder.AppendFormat("Get snapshot for fixtureName=\"{0}\" fixtureId={1} - ", Name, Id);
 
             var result = FindRelationAndFollowAsString("http://api.sportingsolutions.com/rels/snapshot", "GetSnapshot HTTP error", loggingStringBuilder);
-            Logger.Debug(loggingStringBuilder);
+            Logger.LogDebug(loggingStringBuilder.ToString());
             return result;
         }
+
+        public async Task<string> GetSnapshotAsync()
+        {
+
+            var loggingStringBuilder = new StringBuilder();
+            loggingStringBuilder.AppendFormat("Get snapshot for fixtureName=\"{0}\" fixtureId={1} - ", Name, Id);
+
+            var result = await FindRelationAndFollowAsStringAsync("http://api.sportingsolutions.com/rels/snapshot", "GetSnapshot HTTP error", loggingStringBuilder);
+            Logger.LogDebug(loggingStringBuilder.ToString());
+            return result;
+        }
+
 
         public void StartStreaming()
         {
             SdkActorSystem.ActorSystem.ActorSelection(SdkActorSystem.StreamControllerActorPath).Tell(new NewConsumerMessage { Consumer = this });
-            Logger.DebugFormat("Streaming request queued for fixtureName=\"{0}\" fixtureId=\"{1}\"", Name, Id);
+            Logger.LogDebug("Streaming request queued for fixtureName=\"{0}\" fixtureId=\"{1}\"", Name, Id);
         }
 
         [Obsolete]
@@ -102,41 +107,33 @@ namespace SportingSolutions.Udapi.Sdk
 
         public void PauseStreaming()
         {
-            Logger.DebugFormat("Streaming paused for fixtureName=\"{0}\" fixtureId={1}", Name, Id);
+            Logger.LogDebug("Streaming paused for fixtureName=\"{0}\" fixtureId={1}", Name, Id);
             _pauseStream.Reset();
         }
 
         public void UnPauseStreaming()
         {
-            Logger.DebugFormat("Streaming unpaused for fixtureName=\"{0}\" fixtureId={1}", Name, Id);
+            Logger.LogDebug("Streaming unpaused for fixtureName=\"{0}\" fixtureId={1}", Name, Id);
             _pauseStream.Set();
         }
 
         public void StopStreaming()
         {
             //StreamController.Instance.RemoveConsumer(this);
-            Logger.DebugFormat("Streaming stopped for fixtureName=\"{0}\" fixtureId=\"{1}\"", Name, Id);
-            
+            Logger.LogDebug("Streaming stopped for fixtureName=\"{0}\" fixtureId=\"{1}\"", Name, Id);
+
             SdkActorSystem.ActorSystem.ActorSelection(SdkActorSystem.StreamControllerActorPath).Tell(new RemoveConsumerMessage() { Consumer = this });
         }
 
-        #endregion
-
-        #region IDisposable Members
-
         public void Dispose()
-        {            
+        {
             StopStreaming();
             IsDisposed = true;
         }
-        
-        #endregion
-
-        #region IConsumer Members
 
         public virtual void OnStreamDisconnected()
         {
-            Logger.DebugFormat("Resource \"{0}\" OnStreamDisconnected()", Id);
+            Logger.LogDebug("Resource \"{0}\" OnStreamDisconnected()", Id);
 
             if (StreamDisconnected != null)
                 StreamDisconnected(this, EventArgs.Empty);
@@ -144,7 +141,7 @@ namespace SportingSolutions.Udapi.Sdk
 
         public virtual void OnStreamConnected()
         {
-            Logger.DebugFormat("Resource \"{0}\" OnStreamConnected()", Id);
+            Logger.LogDebug("Resource \"{0}\" OnStreamConnected()", Id);
 
             if (StreamConnected != null)
                 StreamConnected(this, EventArgs.Empty);
@@ -152,7 +149,7 @@ namespace SportingSolutions.Udapi.Sdk
 
         public virtual void OnStreamEvent(StreamEventArgs e)
         {
-            Logger.DebugFormat("Resource \"{0}\" OnStreamEvent()", Id);
+            Logger.LogDebug("Resource \"{0}\" OnStreamEvent()", Id);
 
             if (StreamEvent != null)
                 StreamEvent(this, e);
@@ -211,7 +208,7 @@ namespace SportingSolutions.Udapi.Sdk
 
         public void SendEcho()
         {
-            if(string.IsNullOrEmpty(_virtualHost))
+            if (string.IsNullOrEmpty(_virtualHost))
                 throw new Exception("virtualHost is not defined");
 
             var link = State.Links.First(restLink => restLink.Relation == "http://api.sportingsolutions.com/rels/stream/batchecho");
@@ -231,6 +228,26 @@ namespace SportingSolutions.Udapi.Sdk
             }
         }
 
-        #endregion
+        public async Task SendEchoAsync()
+        {
+            if (string.IsNullOrEmpty(_virtualHost))
+                throw new Exception("virtualHost is not defined");
+
+            var link = State.Links.First(restLink => restLink.Relation == "http://api.sportingsolutions.com/rels/stream/batchecho");
+            var echouri = new Uri(link.Href);
+
+            var streamEcho = new StreamEcho
+            {
+                Host = _virtualHost,
+                Message = Guid.NewGuid() + ";" + DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+            };
+
+            var response = await ConnectClient.RequestAsync(echouri, RestSharp.Method.POST, streamEcho, UDAPI.Configuration.ContentType, 3000);
+            if (response.ErrorException != null || response.Content == null)
+            {
+                RestErrorHelper.LogRestError(Logger, response, "Error sending echo request");
+                throw new Exception(string.Format("Error calling {0}", echouri), response.ErrorException);
+            }
+        }
     }
 }

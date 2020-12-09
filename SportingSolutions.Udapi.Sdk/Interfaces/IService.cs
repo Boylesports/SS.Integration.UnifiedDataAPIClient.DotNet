@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -13,42 +14,55 @@
 //limitations under the License.
 
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SportingSolutions.Udapi.Sdk.Interfaces
 {
     public interface IService
     {
         /// <summary>
-        ///     Service's name
+        /// Service's name
         /// </summary>
         string Name { get; }
 
         /// <summary>
-        ///     Interval in seconds at which the service cache will be invalidated
+        /// Interval in seconds at which the service cache will be invalidated
         /// </summary>
         int ServiceCacheInvalidationInterval { get; set; }
 
         /// <summary>
-        ///     Property to enable/disable service cache
+        /// Indicates if the service cache is in use
         /// </summary>
-        bool IsServiceCacheEnabled { get; set; }
+        bool IsServiceCacheEnabled { get; }
 
         /// <summary>
-        ///     Returns a list of the features
-        ///     for this service
+        /// Returns a list of the features
+        /// for this service
         /// </summary>
         /// <returns></returns>
         List<IFeature> GetFeatures();
 
         /// <summary>
-        ///     Returns the feature associated
-        ///     to the given name.
-        ///
-        ///     It returns null if the feature
-        ///     doesn't exist
+        /// Returns a list of the features
+        /// for this service
+        /// </summary>
+        /// <returns></returns>
+        Task<List<IFeature>> GetFeaturesAsync();
+
+        /// <summary>
+        /// Returns the feature associated to the given name.
+        /// It returns null if the feature doesn't exist
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
         IFeature GetFeature(string name);
+
+        /// <summary>
+        /// Returns the feature associated to the given name.
+        /// It returns null if the feature doesn't exist
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        Task<IFeature> GetFeatureAsync(string name);
     }
 }

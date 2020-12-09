@@ -1,4 +1,5 @@
-﻿//Copyright 2017 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2017 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -18,46 +19,37 @@ using System.Text;
 using SportingSolutions.Udapi.Sdk.Clients;
 using SportingSolutions.Udapi.Sdk.Interfaces;
 using SportingSolutions.Udapi.Sdk.Model;
-using log4net;
+using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Caching.Memory;
+using System;
 
 namespace SportingSolutions.Udapi.Sdk
 {
     public class Feature : Endpoint, IFeature
     {
-        #region Fields
-
-        private static readonly object CacheSynchObjectLock = new object();
-
-        #endregion
-
-        #region Constructors
-
-        internal Feature(RestItem restItem, IConnectClient connectClient)
-            : base(restItem, connectClient)
-        {
-            Logger = LogManager.GetLogger(typeof(Feature).ToString());
-            Logger.DebugFormat("Instantiated feature={0}", restItem.Name);
-        }
-
-        #endregion
-
-        #region Implementation of IFeature
-
+        private IMemoryCache Cache { get; }
         public string Name => State.Name;
 
-        public List<IResource> GetResources()
+        internal Feature(RestItem restItem, IConnectClient connectClient, ILogger<Endpoint> logger, IMemoryCache cache = default)
+            : base(restItem, connectClient, logger)
+        {
+            Cache = cache;
+            Logger.LogDebug("Instantiated feature={0}", restItem.Name);
+        }
+
+        public IEnumerable<IResource> GetResources()
         {
             var loggingStringBuilder = new StringBuilder();
             loggingStringBuilder.Append($"Get all available resources for feature={Name} - ");
 
             try
             {
-                var resourcesList = GetResourcesList(Name, loggingStringBuilder);
-                return resourcesList;
+                return GetResourcesList(Name, loggingStringBuilder);
             }
             finally
             {
-                Logger.Debug(loggingStringBuilder);
+                Logger.LogDebug(loggingStringBuilder.ToString());
             }
         }
 
@@ -69,18 +61,13 @@ namespace SportingSolutions.Udapi.Sdk
             try
             {
                 var resourcesList = GetResourcesList(Name, loggingStringBuilder);
-                var resource = resourcesList?.FirstOrDefault(r => r.Name.Equals(name));
-                return resource;
+                return resourcesList?.FirstOrDefault(r => r.Name.Equals(name));
             }
             finally
             {
-                Logger.Debug(loggingStringBuilder);
+                Logger.LogDebug(loggingStringBuilder.ToString());
             }
         }
-
-        #endregion
-
-        #region Private methods
 
         private IEnumerable<RestItem> GetResourcesListFromApi(StringBuilder loggingStringBuilder)
         {
@@ -92,69 +79,119 @@ namespace SportingSolutions.Udapi.Sdk
                 loggingStringBuilder);
         }
 
-        private List<IResource> GetResourcesList(string sport, StringBuilder loggingStringBuilder)
+        private IEnumerable<IResource> GetResourcesList(string sport, StringBuilder loggingStringBuilder)
         {
-            if (ServiceCache.Instance.IsEnabled)
+            IEnumerable<IResource> GetResourceListInternal()
             {
-                var resourcesList = ServiceCache.Instance.GetCachedResources(sport);
-
-                //if resourcesList is null it means it hasn't been cached yet or has been evicted
-                if (resourcesList == null)
-                {
-                    lock (CacheSynchObjectLock)
-                    {
-                        resourcesList = ServiceCache.Instance.GetCachedResources(sport);
-
-                        //if resourcesList is null it means it hasn't been cached yet or has been evicted
-                        if (resourcesList == null)
-                        {
-                            loggingStringBuilder.AppendLine(
+                loggingStringBuilder.AppendLine(
                                 $"resources cache is empty for feature={Name} - going to retrieve list of resources from the API now - ");
-                            var resources = GetResourcesListFromApi(loggingStringBuilder);
-                            if (resources == null)
-                            {
-                                Logger.Warn($"Return Method=GetResourcesListFromApi is NULL");
-                                return null;
-                            }
-                            ServiceCache.Instance.CacheResources(
-                                sport,
-                                resourcesList = resources
-                                    .Select(restItem => new Resource(restItem, ConnectClient))
-                                    .Cast<IResource>()
-                                    .ToList());
-
-                            loggingStringBuilder.AppendLine(
-                                $"list with {resourcesList.Count} resources has been cached for feature={Name} - ");
-                        }
-                        else
-                        {
-                            loggingStringBuilder.AppendLine(
-                                $"retrieved {resourcesList.Count} resources from cache for feature={Name} - ");
-                        }
-                    }
+                var resources = GetResourcesListFromApi(loggingStringBuilder);
+                if (resources == null)
+                {
+                    Logger.LogWarning($"Return Method=GetResourcesListFromApi is NULL");
+                    return null;
                 }
                 else
                 {
                     loggingStringBuilder.AppendLine(
-                        $"retrieved {resourcesList.Count} resources from cache for feature={Name} - ");
+                        $"list with {resources.Count()} resources has been cached for feature={Name} - ");
+                    return resources
+                        .Select(restItem => new Resource(restItem, ConnectClient, Logger))
+                        .Cast<IResource>();
                 }
-
-                return resourcesList;
             }
 
-
-            var resource = GetResourcesListFromApi(loggingStringBuilder);
-            if (resource == null)
+            if (Cache != default)
             {
-                Logger.Warn($"Return Method=GetResourcesListFromApi is NULL");
-                return null;
+                return Cache.GetOrCreate($"{sport}_Resource", entry =>
+                {
+                    var res = GetResourceListInternal();
+                    if (res != default)
+                    {
+                        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(5);
+                    }
+                    return res;
+                });
             }
-            return resource.Select(restItem => new Resource(restItem, ConnectClient))
-                .Cast<IResource>()
-                .ToList();
-
+            return GetResourceListInternal();
         }
 
-        #endregion
+        private ValueTask<IEnumerable<RestItem>> GetResourcesListFromApiAsync(StringBuilder loggingStringBuilder)
+        {
+            loggingStringBuilder.Append("Getting resources list from API - ");
+
+            return FindRelationAndFollowAsync(
+                "http://api.sportingsolutions.com/rels/resources/list",
+                "GetResources HTTP error",
+                loggingStringBuilder);
+        }
+
+        private async Task<IEnumerable<IResource>> GetResourcesListAsync(string sport, StringBuilder loggingStringBuilder)
+        {
+            async Task<IEnumerable<IResource>> GetResourceListInternal()
+            {
+                loggingStringBuilder.AppendLine(
+                                $"resources cache is empty for feature={Name} - going to retrieve list of resources from the API now - ");
+                var resources = await GetResourcesListFromApiAsync(loggingStringBuilder);
+                if (resources == null)
+                {
+                    Logger.LogWarning($"Return Method=GetResourcesListFromApi is NULL");
+                    return null;
+                }
+                else
+                {
+                    loggingStringBuilder.AppendLine(
+                        $"list with {resources.Count()} resources has been cached for feature={Name} - ");
+                    return resources
+                        .Select(restItem => new Resource(restItem, ConnectClient, Logger))
+                        .Cast<IResource>();
+                }
+            }
+
+            if (Cache != default)
+            {
+                return await Cache.GetOrCreateAsync($"{sport}_Resource", async entry =>
+                {
+                    var res = await GetResourceListInternal();
+                    if (res != default)
+                    {
+                        entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(5);
+                    }
+                    return res;
+                });
+            }
+            return await GetResourceListInternal();
+        }
+
+        public Task<IEnumerable<IResource>> GetResourcesAsync()
+        {
+            var loggingStringBuilder = new StringBuilder();
+            loggingStringBuilder.Append($"Get all available resources for feature={Name} - ");
+
+            try
+            {
+                return GetResourcesListAsync(Name, loggingStringBuilder);
+            }
+            finally
+            {
+                Logger.LogDebug(loggingStringBuilder.ToString());
+            }
+        }
+
+        public async Task<IResource> GetResourceAsync(string name)
+        {
+            var loggingStringBuilder = new StringBuilder();
+            loggingStringBuilder.AppendFormat($"Get resource={name} for feature={Name} - ");
+
+            try
+            {
+                var resourcesList = await GetResourcesListAsync(Name, loggingStringBuilder);
+                return resourcesList?.FirstOrDefault(r => r.Name.Equals(name));
+            }
+            finally
+            {
+                Logger.LogDebug(loggingStringBuilder.ToString());
+            }
+        }
     }
 }

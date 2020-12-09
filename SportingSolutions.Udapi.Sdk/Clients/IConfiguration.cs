@@ -60,9 +60,9 @@ namespace SportingSolutions.Udapi.Sdk.Clients
         /// <summary>
         /// Enables auto reconnection on RabbitMQ.Client
         /// </summary>
-        bool AutoReconnect { get;  }
+        bool AutoReconnect { get; }
 
-        
+
         int DisconnectionDelay { get; }
     }
 }

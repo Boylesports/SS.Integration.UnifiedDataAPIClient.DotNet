@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -12,73 +13,70 @@
 //See the License for the specific language governing permissions and
 //limitations under the License.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using RestSharp;
 using SportingSolutions.Udapi.Sdk.Exceptions;
 using SportingSolutions.Udapi.Sdk.Extensions;
 using SportingSolutions.Udapi.Sdk.Model;
-using log4net;
-using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Threading;
 
 namespace SportingSolutions.Udapi.Sdk.Clients
 {
-   
-    public class ConnectClient : IConnectClient
+
+    public partial class ConnectClient : IConnectClient
     {
         private const int DEFAULT_REQUEST_RETRY_ATTEMPTS = 3;
-        private static readonly object sysLock = new object();
-
-        private readonly Uri _baseUrl;
-        private readonly ICredentials _credentials;
-
-        private Parameter _xAuthTokenParameter;
 
         public const string XAuthToken = "X-Auth-Token";
         public const string XAuthUser = "X-Auth-User";
         public const string XAuthKey = "X-Auth-Key";
 
-        private readonly ILog Logger;
+        private ILogger<ConnectClient> Logger { get; }
+        private Uri BaseUrl { get; }
+        private ICredentials Credentials { get; }
+        private string SessionToken { get; set; }
+        private SemaphoreSlim SessionLock { get; } = new SemaphoreSlim(1);
 
-        public ConnectClient(Uri baseUrl, ICredentials credentials)
+        public ConnectClient(ILogger<ConnectClient> log, Uri baseUrl, ICredentials credentials)
         {
             if (baseUrl == null) throw new ArgumentNullException("baseUrl");
             if (credentials == null) throw new ArgumentNullException("credentials");
 
-            _credentials = credentials;
-            _baseUrl = baseUrl;
-
-            Logger = LogManager.GetLogger(typeof(ConnectClient).ToString());
+            Logger = log;
+            Credentials = credentials;
+            BaseUrl = baseUrl;
         }
 
         private IRestClient CreateClient()
         {
             var restClient = new RestClient();
-            restClient.BaseUrl = _baseUrl;
-          
-            restClient.ClearHandlers();
-            restClient.AddHandler("*", new ConnectConverter(UDAPI.Configuration.ContentType));
+            restClient.BaseUrl = BaseUrl;
 
-            if (_xAuthTokenParameter != null)
+            restClient.ClearHandlers();
+            restClient.AddHandler("*", () => new ConnectConverter(UDAPI.Configuration.ContentType));
+
+            if (!string.IsNullOrEmpty(SessionToken))
             {
-                restClient.AddDefaultParameter(_xAuthTokenParameter);
+                restClient.AddDefaultParameter(XAuthToken, SessionToken);
             }
             return restClient;
         }
 
         private static IRestRequest CreateRequest(Uri uri, Method method, object body, string contentType, int timeout)
         {
-            IRestRequest request = new RestRequest(uri,method);
-            
+            IRestRequest request = new RestRequest(uri, method);
+
             request.Timeout = timeout;
 
             if (body != null)
             {
-                request.RequestFormat = DataFormat.Json;
                 request.JsonSerializer = new ConnectConverter(contentType);
-                request.AddBody(body);
+                request.AddJsonBody(body);
             }
 
             return request;
@@ -87,7 +85,7 @@ namespace SportingSolutions.Udapi.Sdk.Clients
         public IRestResponse Login()
         {
             var client = CreateClient();
-            var request = CreateRequest(_baseUrl, Method.GET, null, UDAPI.Configuration.ContentType, UDAPI.Configuration.Timeout);
+            var request = CreateRequest(BaseUrl, Method.GET, null, UDAPI.Configuration.ContentType, UDAPI.Configuration.Timeout);
 
             var response = client.Execute(request);
             if (response.StatusCode == HttpStatusCode.Unauthorized)
@@ -98,14 +96,14 @@ namespace SportingSolutions.Udapi.Sdk.Clients
                 {
                     var loginRequest = CreateRequest(loginUri, Method.POST, null, UDAPI.Configuration.ContentType, UDAPI.Configuration.Timeout);
 
-                    loginRequest.AddHeader(XAuthUser, _credentials.ApiUser);
-                    loginRequest.AddHeader(XAuthKey, _credentials.ApiKey);
+                    loginRequest.AddHeader(XAuthUser, Credentials.ApiUser);
+                    loginRequest.AddHeader(XAuthKey, Credentials.ApiKey);
 
                     response = client.Execute(loginRequest);
 
                     if (response.StatusCode == HttpStatusCode.OK)
                     {
-                        _xAuthTokenParameter = response.Headers.FirstOrDefault(h => h.Name == XAuthToken);
+                        SessionToken = response.Headers.FirstOrDefault(h => h.Name == XAuthToken)?.Value as string;
                     }
                 }
             }
@@ -130,15 +128,15 @@ namespace SportingSolutions.Udapi.Sdk.Clients
 
             var loginRequest = CreateRequest(loginUri, Method.POST, null, UDAPI.Configuration.ContentType, UDAPI.Configuration.Timeout);
 
-            loginRequest.AddHeader(XAuthUser, _credentials.ApiUser);
-            loginRequest.AddHeader(XAuthKey, _credentials.ApiKey);
+            loginRequest.AddHeader(XAuthUser, Credentials.ApiUser);
+            loginRequest.AddHeader(XAuthKey, Credentials.ApiKey);
 
             response = CreateClient().Execute<List<RestItem>>(loginRequest);
 
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                _xAuthTokenParameter = response.Headers.FirstOrDefault(h => h.Name == XAuthToken);
-                authenticated = true;
+                SessionToken = response.Headers.FirstOrDefault(h => h.Name == XAuthToken)?.Value as string;
+                authenticated = !string.IsNullOrEmpty(SessionToken);
             }
             return authenticated;
         }
@@ -186,7 +184,7 @@ namespace SportingSolutions.Udapi.Sdk.Clients
                 var request = CreateRequest(uri, method, body, contentType, timeout);
 
                 var client = CreateClient();
-                var oldAuth = client.DefaultParameters.FirstOrDefault(x => x.Name == XAuthToken);
+                var oldAuth = client.DefaultParameters.FirstOrDefault(x => x.Name == XAuthToken)?.Value as string;
 
                 response = client.Execute(request);
 
@@ -196,19 +194,19 @@ namespace SportingSolutions.Udapi.Sdk.Clients
                 {
                     //retry
                     connectionClosedRetryCounter++;
-                    Logger.WarnFormat("Request failed due underlying connection closed URL={0}", uri);
+                    Logger.LogWarning("Request failed due underlying connection closed URL={0}", uri);
                     continue;
                 }
 
                 if (response.StatusCode == HttpStatusCode.Unauthorized)
                 {
-                    RestErrorHelper.LogRestWarn(Logger, response, string.Format("Unauthenticated when using authToken={0}", _xAuthTokenParameter != null ? _xAuthTokenParameter.Value : String.Empty));
+                    RestErrorHelper.LogRestWarn(Logger, response, string.Format("Unauthenticated when using authToken={0}", SessionToken));
 
                     var authenticated = false;
-                    lock (sysLock)
+                    try
                     {
-
-                        if (_xAuthTokenParameter == null || oldAuth == _xAuthTokenParameter)
+                        SessionLock.Wait();
+                        if (SessionToken == null || oldAuth == SessionToken)
                         {
                             authenticated = Authenticate(response);
                         }
@@ -216,6 +214,10 @@ namespace SportingSolutions.Udapi.Sdk.Clients
                         {
                             authenticated = true;
                         }
+                    }
+                    finally
+                    {
+                        SessionLock.Release();
                     }
 
                     if (authenticated)
@@ -229,7 +231,7 @@ namespace SportingSolutions.Udapi.Sdk.Clients
                         {
                             //retry
                             connectionClosedRetryCounter++;
-                            Logger.WarnFormat("Request failed due underlying connection closed URL={0}", uri);
+                            Logger.LogWarning("Request failed due underlying connection closed URL={0}", uri);
                             continue;
                         }
                     }
@@ -244,16 +246,6 @@ namespace SportingSolutions.Udapi.Sdk.Clients
 
             return response;
         }
-
-        //Not used
-        public void RequestAsync<T>(Uri uri, Method method, object body, string contentType, int timeout, Action<IRestResponse<T>> responseCallback) where T : new()
-        {
-            var request = CreateRequest(uri, method, body, contentType, timeout);
-
-            CreateClient().ExecuteAsync(request, responseCallback);
-        }
-
-        #region Sync Overloads
 
         public IRestResponse<T> Request<T>(Uri uri, Method method) where T : new()
         {
@@ -284,36 +276,5 @@ namespace SportingSolutions.Udapi.Sdk.Clients
         {
             return Request<T>(uri, method, body, contentType, UDAPI.Configuration.Timeout);
         }
-
-        #endregion
-
-        #region Async Overloads
-
-        public void RequestAsync<T>(Uri uri, Method method, Action<IRestResponse<T>> responseCallback) where T : new()
-        {
-            RequestAsync(uri, method, null, UDAPI.Configuration.ContentType, UDAPI.Configuration.Timeout, responseCallback);
-        }
-
-        public void RequestAsync<T>(Uri uri, Method method, int timeout, Action<IRestResponse<T>> responseCallback) where T : new()
-        {
-            RequestAsync(uri, method, null, UDAPI.Configuration.ContentType, timeout, responseCallback);
-        }
-
-        public void RequestAsync<T>(Uri uri, Method method, object body, Action<IRestResponse<T>> responseCallback) where T : new()
-        {
-            RequestAsync(uri, method, body, UDAPI.Configuration.ContentType, UDAPI.Configuration.Timeout, responseCallback);
-        }
-
-        public void RequestAsync<T>(Uri uri, Method method, object body, int timeout, Action<IRestResponse<T>> responseCallback) where T : new()
-        {
-            RequestAsync(uri, method, body, UDAPI.Configuration.ContentType, timeout, responseCallback);
-        }
-
-        public void RequestAsync<T>(Uri uri, Method method, object body, string contentType, Action<IRestResponse<T>> responseCallback) where T : new()
-        {
-            RequestAsync(uri, method, body, contentType, UDAPI.Configuration.Timeout, responseCallback);
-        }
-
-        #endregion
     }
 }

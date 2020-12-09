@@ -1,206 +1,31 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Integration</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{A3C3DFC3-B70F-4A9A-9520-A4B656718250}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>SportingSolutions.Udapi.Sdk</RootNamespace>
-    <AssemblyName>SportingSolutions.Udapi.Sdk</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
-    <RestorePackages>true</RestorePackages>
-    <TargetFrameworkProfile />
+    <TargetFrameworks>net472;netcoreapp3.1;net5.0</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Integration|AnyCPU'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>..\build\SportingSolutions.Udapi.Sdk\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisIgnoreBuiltInRuleSets>false</CodeAnalysisIgnoreBuiltInRuleSets>
-    <CodeAnalysisIgnoreBuiltInRules>false</CodeAnalysisIgnoreBuiltInRules>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'UAT|AnyCPU'">
-    <OutputPath>bin\UAT\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Demo|AnyCPU'">
-    <OutputPath>bin\Demo\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Production|AnyCPU'">
-    <OutputPath>bin\Production\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <ErrorReport>prompt</ErrorReport>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="Akka, Version=1.3.6.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Akka.1.3.6\lib\net45\Akka.dll</HintPath>
-    </Reference>
-    <Reference Include="Akka.Logger.log4net, Version=1.3.1.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\Akka.Logger.log4net.1.3.1\lib\net45\Akka.Logger.log4net.dll</HintPath>
-    </Reference>
-    <Reference Include="log4net, Version=2.0.8.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\packages\log4net.2.0.8\lib\net45-full\log4net.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.Diagnostics.Tracing.EventSource, Version=1.1.28.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\Microsoft.Diagnostics.Tracing.EventSource.Redist.1.1.28\lib\net46\Microsoft.Diagnostics.Tracing.EventSource.dll</HintPath>
-    </Reference>
-    <Reference Include="Newtonsoft.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="RabbitMQ.Client, Version=5.0.0.0, Culture=neutral, PublicKeyToken=89e7d7c5feba84ce, processorArchitecture=MSIL">
-      <HintPath>..\packages\RabbitMQ.Client.5.1.2\lib\net451\RabbitMQ.Client.dll</HintPath>
-    </Reference>
-    <Reference Include="RestSharp, Version=106.5.4.0, Culture=neutral, PublicKeyToken=598062e77f915f75, processorArchitecture=MSIL">
-      <HintPath>..\packages\RestSharp.106.5.4\lib\net452\RestSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Collections.Immutable, Version=1.2.2.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>..\packages\System.Collections.Immutable.1.4.0\lib\portable-net45+win8+wp8+wpa81\System.Collections.Immutable.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Configuration" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Runtime.Caching" />
-    <Reference Include="System.Web" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Actors\FaultControllerActor.cs" />
-    <Compile Include="Actors\MailBox\EchoControllerActorMailBox.cs" />
-    <Compile Include="Actors\MailBox\StreamControllerActorMailBox.cs" />
-    <Compile Include="Actors\SdkDeadletterMonitorActor.cs" />
-    <Compile Include="Actors\EchoControllerActor.cs" />
-    <Compile Include="Events\SdkErrorMessage.cs" />
-    <Compile Include="Exceptions\EchoControllerActorException.cs" />
-    <Compile Include="Model\Message\CriticalActorRestartedMessage.cs" />
-    <Compile Include="Model\Message\DisposeMessage.cs" />
-    <Compile Include="Model\Message\PathMessage.cs" />
-    <Compile Include="Model\Message\NotFoundMessage.cs" />
-    <Compile Include="Model\Message\RemoveSubscriberMessage.cs" />
-    <Compile Include="Model\Message\NewSubscriberMessage.cs" />
-    <Compile Include="Model\Message\RemoveConsumerMessage.cs" />
-    <Compile Include="Model\Message\NewConsumerMessage.cs" />
-    <Compile Include="Actors\ResourceActor.cs" />
-    <Compile Include="Model\Message\ResetAllMessage.cs" />
-    <Compile Include="Model\Message\SdkErrorMessage.cs" />
-    <Compile Include="Model\Message\StopStreamingMessage.cs" />
-    <Compile Include="Actors\StreamControllerActor.cs" />
-    <Compile Include="Clients\Configuration.cs" />
-    <Compile Include="Clients\ConnectClient.cs" />
-    <Compile Include="Clients\ConnectConverter.cs" />
-    <Compile Include="Clients\Credentials.cs" />
-    <Compile Include="Clients\IConfiguration.cs" />
-    <Compile Include="Clients\IConnectClient.cs" />
-    <Compile Include="Clients\ICredentials.cs" />
-    <Compile Include="Clients\RestErrorHelper.cs" />
-    <Compile Include="Model\Message\DisconnectMessage.cs" />
-    <Compile Include="Model\Message\ConnectMessage.cs" />
-    <Compile Include="Credentials.cs" />
-    <Compile Include="Extensions\JsonHelper.cs" />
-    <Compile Include="Interfaces\IDispatcher.cs" />
-    <Compile Include="Interfaces\IEchoController.cs" />
-    <Compile Include="Interfaces\IConsumer.cs" />
-    <Compile Include="Interfaces\IStreamStatistics.cs" />
-    <Compile Include="Interfaces\IStreamSubscriber.cs" />
-    <Compile Include="Model\Message\EchoMessage.cs" />
-    <Compile Include="Model\Message\TestMessage.cs" />
-    <Compile Include="QueueDetails.cs" />
-    <Compile Include="ServiceCache.cs" />
-    <Compile Include="Endpoint.cs" />
-    <Compile Include="Events\StreamEventArgs.cs" />
-    <Compile Include="Exceptions\NotAuthenticatedException.cs" />
-    <Compile Include="Feature.cs" />
-    <Compile Include="Interfaces\ICredentials.cs" />
-    <Compile Include="Interfaces\IFeature.cs" />
-    <Compile Include="Interfaces\IResource.cs" />
-    <Compile Include="Interfaces\IService.cs" />
-    <Compile Include="Interfaces\ISession.cs" />
-    <Compile Include="Model\RestItem.cs" />
-    <Compile Include="Model\RestLink.cs" />
-    <Compile Include="Model\StreamEcho.cs" />
-    <Compile Include="Model\Tag.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Resource.cs" />
-    <Compile Include="Service.cs" />
-    <Compile Include="Session.cs" />
-    <Compile Include="SessionFactory.cs" />
-    <Compile Include="Model\Summary.cs" />
-    <Compile Include="StreamSubscriber.cs" />
-    <Compile Include="Model\Message\StreamUpdateMessage.cs" />
-    <Compile Include="SdkActorSystem.cs" />
-    <Compile Include="UDAPI.cs" />
-    <Compile Include="Actors\UpdateDispatcherActor.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="app.config">
-      <SubType>Designer</SubType>
-    </None>
-    <None Include="packages.config">
-      <SubType>Designer</SubType>
-    </None>
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+
   <PropertyGroup>
-    <PreBuildEvent>
-    </PreBuildEvent>
+    <Authors>Sporting Solutions, BoyleSports Ltd.</Authors>
+    <PackageLicenseUrl>http://www.apache.org/licenses/LICENSE-2.0</PackageLicenseUrl>
+    <RepositoryUrl>https://github.com/sportingsolutions/Unified_Data_API_Client_DotNet</RepositoryUrl>
+    <PackageIconUrl>https://raw.github.com/sportingsolutions/Unified_Data_API_Client_DotNet/master/SportingSolutions.Udapi.Sdk/packageIcon.png</PackageIconUrl>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Description>The SDK provides an easy to use interface into the Sporting Solutions Unified Data API. Usage of this SDK requires a GTP username and password (available on request), it's usage is authorised only for current or prospective clients.</Description>
+    <PackageTags>SportingSolutions GTP Connect SportingSolutionsConnect SDK SportingIndex Sporting Solutions Index UnifiedDataAPI</PackageTags>
+    <Company>Sporting Solutions Ltd.</Company>
+    <Copyright>Copyright (C) BoyleSports Ltd. 2020
+Copyright (C) Sporting Solutions Ltd. 2017</Copyright>
+    <Version>3.0.0-alpha.1</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <DocumentationFile>SportingSolutions.Udapi.Sdk.xml</DocumentationFile>
   </PropertyGroup>
-  <PropertyGroup>
-    <PostBuildEvent>
-    </PostBuildEvent>
-  </PropertyGroup>
-  <Import Project="$(SolutionDir)\.nuget\NuGet.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+
+  <ItemGroup>
+    <PackageReference Include="Akka" Version="1.4.12" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="5.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+    <PackageReference Include="RabbitMQ.Client" Version="6.2.1" />
+    <PackageReference Include="RestSharp" Version="106.11.7" />
+  </ItemGroup>
 </Project>

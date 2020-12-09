@@ -5,6 +5,6 @@
     /// </summary>
     internal class ResetAllEchoesMessage
     {
-        
+
     }
 }

@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -14,6 +15,8 @@
 
 using System;
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using SportingSolutions.Udapi.Sdk.Clients;
 using SportingSolutions.Udapi.Sdk.Interfaces;
 using ICredentials = SportingSolutions.Udapi.Sdk.Interfaces.ICredentials;
@@ -22,30 +25,38 @@ namespace SportingSolutions.Udapi.Sdk
 {
     public class SessionFactory
     {
-        private static readonly SessionFactory _sessionFactory = new SessionFactory();
-        private readonly ConcurrentDictionary<string, ISession> _sessions;
+        private ILoggerFactory LoggerFactory { get; }
+        private IMemoryCache Cache { get; }
+        private ConcurrentDictionary<string, ISession> _sessions { get; } = new ConcurrentDictionary<string, ISession>();
 
-        private SessionFactory()
+        /// <summary>
+        /// DI Class
+        /// </summary>
+        /// <param name="log"></param>
+        public SessionFactory(ILoggerFactory log, IServiceProvider services)
         {
-            _sessions = new ConcurrentDictionary<string, ISession>();
+            LoggerFactory = log;
+            Cache = services.GetService(typeof(IMemoryCache)) as IMemoryCache; //Optional
+            SdkActorSystem.LoggerFactory = log;
         }
 
-        public static ISession CreateSession(Uri serverUri, ICredentials credentials)
+        public ISession GetSession(Uri serverUri, ICredentials credentials)
         {
-            return _sessionFactory.GetSession(serverUri, credentials);
-        }
-
-        private ISession GetSession(Uri serverUri, ICredentials credentials)
-        {
-            ISession session = null;
-            _sessions.TryGetValue(serverUri + credentials.UserName, out session);
-            if (session == null)
+            if (_sessions.TryGetValue(serverUri + credentials.UserName, out ISession session))
             {
-                var connectClient = new ConnectClient(serverUri, new Clients.Credentials(credentials.UserName, credentials.Password));
-                session = new Session(connectClient);
-                _sessions.TryAdd(serverUri + credentials.UserName, session);
+                return session;
+            } 
+            else
+            {
+                var connectClient = new ConnectClient(LoggerFactory.CreateLogger<ConnectClient>(), serverUri, new Clients.Credentials(credentials.UserName, credentials.Password));
+                var newSession = new Session(connectClient, LoggerFactory.CreateLogger<Session>(), Cache);
+                if(_sessions.TryAdd(serverUri + credentials.UserName, newSession))
+                {
+                    return newSession;
+                }
             }
-            return session;
+
+            return default;
         }
     }
 }

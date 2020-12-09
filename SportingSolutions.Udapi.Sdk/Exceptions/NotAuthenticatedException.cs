@@ -21,7 +21,7 @@ namespace SportingSolutions.Udapi.Sdk.Exceptions
         public NotAuthenticatedException(string message, Exception innerException)
             : base(message, innerException) { }
 
-        public NotAuthenticatedException(string message) 
+        public NotAuthenticatedException(string message)
             : base(message) { }
     }
 }

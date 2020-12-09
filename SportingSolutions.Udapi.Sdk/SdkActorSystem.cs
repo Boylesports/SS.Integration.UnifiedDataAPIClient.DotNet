@@ -1,20 +1,30 @@
-﻿using System.Runtime.InteropServices;
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
+
+//Licensed under the Apache License, Version 2.0 (the "License");
+//you may not use this file except in compliance with the License.
+//You may obtain a copy of the License at
+
+//    http://www.apache.org/licenses/LICENSE-2.0
+
+//Unless required by applicable law or agreed to in writing, software
+//distributed under the License is distributed on an "AS IS" BASIS,
+//WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//See the License for the specific language governing permissions and
+//limitations under the License.
+
 using Akka.Actor;
-using Akka.Dispatch;
 using Akka.Event;
-using System.Threading;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using SportingSolutions.Udapi.Sdk.Actors;
-using log4net;
+using System.Threading.Tasks;
 
 namespace SportingSolutions.Udapi.Sdk
 {
     public static class SdkActorSystem
     {
+        public static ILoggerFactory LoggerFactory { internal get; set; }
         public static ActorSystem ActorSystem { get; internal set; } = ActorSystem.Create("SDKSystem");
-
-
-        private static readonly ILog Logger = LogManager.GetLogger(typeof(SdkActorSystem));
 
         private const string UserSystemPath = "/user/";
 
@@ -25,48 +35,39 @@ namespace SportingSolutions.Udapi.Sdk
         public static readonly string EchoControllerActorPath = UserSystemPath + EchoControllerActor.ActorName;
         public static readonly string FaultControllerActorPath = UserSystemPath + FaultControllerActor.ActorName;
 
-
         public static ICanTell FaultControllerActorRef { set; get; }
 
-        static SdkActorSystem()
-        {
-
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public static void Init(bool needToRecreateActorSystem = false)
+        public static async ValueTask Init(bool needToRecreateActorSystem = false)
         {
             if (InitializeActors)
             {
                 if (needToRecreateActorSystem)
                 {
-                    if (SdkActorSystem.ActorSystem != null)
-                        TerminateActorSystem();
+                    if (ActorSystem != null)
+                        await TerminateActorSystem();
 
                     ActorSystem = ActorSystem.Create("SDKSystem");
-                    Logger.Debug($"UDAPI ActorSystem is created, creating actors...");
+                    //Logger.Debug($"UDAPI ActorSystem is created, creating actors...");
                 }
 
                 var dispatcher = ActorSystem.ActorOf(
-                    Props.Create(() => new UpdateDispatcherActor()),
+                    Props.Create(() => new UpdateDispatcherActor(LoggerFactory)),
                     UpdateDispatcherActor.ActorName);
 
                ActorSystem.ActorOf(
-                    Props.Create(() => new StreamControllerActor(dispatcher)),
+                    Props.Create(() => new StreamControllerActor(dispatcher, LoggerFactory)),
                     StreamControllerActor.ActorName);
                 
                 ActorSystem.ActorOf(
-                    Props.Create(() => new EchoControllerActor()).WithMailbox("echocontrolleractor-mailbox"),
+                    Props.Create(() => new EchoControllerActor(LoggerFactory.CreateLogger<EchoControllerActor>())).WithMailbox("echocontrolleractor-mailbox"),
                     EchoControllerActor.ActorName);
 
                 FaultControllerActorRef = ActorSystem.ActorOf(
-                    Props.Create(() =>new FaultControllerActor()),
+                    Props.Create(() =>new FaultControllerActor(LoggerFactory.CreateLogger<FaultControllerActor>())),
                     FaultControllerActor.ActorName);
 
                 var deadletterWatchActorRef = ActorSystem.ActorOf(
-                    Props.Create(() => new SdkDeadletterMonitorActor()),
+                    Props.Create(() => new SdkDeadletterMonitorActor(LoggerFactory.CreateLogger<SdkDeadletterMonitorActor>())),
                     "SdkDeadletterMonitorActor");
 
                 // subscribe to the event stream for messages of type "DeadLetter"
@@ -76,11 +77,11 @@ namespace SportingSolutions.Udapi.Sdk
             }
         }
 
-        private static void TerminateActorSystem()
+        private static async Task TerminateActorSystem()
         {
-            Logger.Debug("Terminating UDAPI ActorSystem...");
-            SdkActorSystem.ActorSystem.Terminate().Wait();
-            Logger.Debug("UDAPI ActorSystem has been terminated");
+            //Logger.Debug("Terminating UDAPI ActorSystem...");
+            await ActorSystem.Terminate();
+            //Logger.Debug("UDAPI ActorSystem has been terminated");
         }
     }
 }

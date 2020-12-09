@@ -44,7 +44,7 @@ namespace SportingSolutions.Udapi.Sdk.Extensions
         public static string ToJson(this object deserializedObject)
         {
             string serializedObject = null;
-            if(deserializedObject != null)
+            if (deserializedObject != null)
             {
                 serializedObject = JsonConvert.SerializeObject(deserializedObject, Formatting.None, _settings);
             }

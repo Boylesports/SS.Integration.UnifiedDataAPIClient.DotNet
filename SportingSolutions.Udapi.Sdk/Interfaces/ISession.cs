@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -13,12 +14,12 @@
 //limitations under the License.
 
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace SportingSolutions.Udapi.Sdk.Interfaces
 {
     public interface ISession
     {
-        
         /// <summary>
         ///     Returns the service associated to 
         ///     the given name.
@@ -31,10 +32,28 @@ namespace SportingSolutions.Udapi.Sdk.Interfaces
         IService GetService(string name);
 
         /// <summary>
+        ///     Returns the service associated to 
+        ///     the given name.
+        /// 
+        ///     It returns null if the service
+        ///     doesn't exist
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        Task<IService> GetServiceAsync(string name);
+
+        /// <summary>
         ///     Returns the list of Sporting Solutions services
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        IList<IService> GetServices();
+        IEnumerable<IService> GetServices();
+
+        /// <summary>
+        ///     Returns the list of Sporting Solutions services
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        Task<IEnumerable<IService>> GetServicesAsync();
     }
 }

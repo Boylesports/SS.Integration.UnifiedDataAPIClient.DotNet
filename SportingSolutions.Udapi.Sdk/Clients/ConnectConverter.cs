@@ -1,4 +1,5 @@
-﻿//Copyright 2012 Spin Services Limited
+﻿//Copyright 2020 BoyleSports Ltd.
+//Copyright 2012 Spin Services Limited
 
 //Licensed under the Apache License, Version 2.0 (the "License");
 //you may not use this file except in compliance with the License.
@@ -32,7 +33,7 @@ namespace SportingSolutions.Udapi.Sdk.Clients
                 DateTimeZoneHandling = DateTimeZoneHandling.Utc,
                 Converters = new List<JsonConverter> { new IsoDateTimeConverter() },
                 NullValueHandling = NullValueHandling.Ignore
-            };   
+            };
         }
 
         public ConnectConverter(string contentType)
@@ -52,9 +53,6 @@ namespace SportingSolutions.Udapi.Sdk.Clients
             return (T)JsonConvert.DeserializeObject(response.Content, type, SerializerSettings);
         }
 
-        string IDeserializer.RootElement { get; set; }
-        string IDeserializer.Namespace { get; set; }
-        string IDeserializer.DateFormat { get; set; }
         public string ContentType { get; set; }
     }
 }
