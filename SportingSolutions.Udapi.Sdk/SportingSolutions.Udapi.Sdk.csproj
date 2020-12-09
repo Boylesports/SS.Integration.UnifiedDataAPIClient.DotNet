@@ -15,7 +15,8 @@
     <Company>Sporting Solutions Ltd.</Company>
     <Copyright>Copyright (C) BoyleSports Ltd. 2020
 Copyright (C) Sporting Solutions Ltd. 2017</Copyright>
-    <Version>3.0.0-alpha.1</Version>
+    <GitHash></GitHash>
+    <Version>3.0.0-alpha.1$(GitHash)</Version>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <DocumentationFile>SportingSolutions.Udapi.Sdk.xml</DocumentationFile>
   </PropertyGroup>

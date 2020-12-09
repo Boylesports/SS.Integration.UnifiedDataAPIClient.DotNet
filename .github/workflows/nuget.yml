@@ -1,0 +1,21 @@
+name: NugetBuild
+on:
+  push:
+    branches: [ master ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: benjlevesque/short-sha@v1.2
+        id: short-sha
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v1.7.2
+        with:
+          dotnet-version: 5.0
+      - name: .NET build
+        run: dotnet build -c Release /p:GitHash=+${{ steps.short-sha.outputs.sha }} "SportingSolutions.Udapi.Sdk/SportingSolutions.Udapi.Sdk.csproj"
+      - name: Add GitHub Source
+        run: dotnet nuget add source https://nuget.pkg.github.com/Boylesports/index.json -u Boylesports -p ${{ secrets.PACKAGE_TOKEN }} -n github
+      - name: Push package
+        run: dotnet nuget push "*.nupkg" --skip-duplicate -s github
