@@ -25,6 +25,7 @@ using SportingSolutions.Udapi.Sdk.Events;
 using SportingSolutions.Udapi.Sdk.Interfaces;
 using SportingSolutions.Udapi.Sdk.Model;
 using SportingSolutions.Udapi.Sdk.Model.Message;
+using static SportingSolutions.Udapi.Sdk.Interfaces.IResource;
 
 namespace SportingSolutions.Udapi.Sdk
 {
@@ -35,12 +36,9 @@ namespace SportingSolutions.Udapi.Sdk
 
         public event EventHandler Tick;
 
-        public event EventHandler StreamConnected;
-        public event EventHandler StreamDisconnected;
-        public event EventHandler<StreamEventArgs> StreamEvent;
-
-        [Obsolete]
-        public event EventHandler StreamSynchronizationError;
+        public event AsyncEventHandler StreamConnected;
+        public event AsyncEventHandler StreamDisconnected;
+        public event AsyncEventHandler<StreamEventArgs> StreamEvent;
 
         private readonly ManualResetEvent _pauseStream;
         private string _virtualHost;
@@ -99,12 +97,6 @@ namespace SportingSolutions.Udapi.Sdk
             Logger.LogDebug("Streaming request queued for fixtureName=\"{0}\" fixtureId=\"{1}\"", Name, Id);
         }
 
-        [Obsolete]
-        public void StartStreaming(int echoInterval, int echoMaxDelay)
-        {
-            StartStreaming();
-        }
-
         public void PauseStreaming()
         {
             Logger.LogDebug("Streaming paused for fixtureName=\"{0}\" fixtureId={1}", Name, Id);
@@ -131,28 +123,28 @@ namespace SportingSolutions.Udapi.Sdk
             IsDisposed = true;
         }
 
-        public virtual void OnStreamDisconnected()
+        public virtual async Task OnStreamDisconnected()
         {
             Logger.LogDebug("Resource \"{0}\" OnStreamDisconnected()", Id);
 
             if (StreamDisconnected != null)
-                StreamDisconnected(this, EventArgs.Empty);
+                await StreamDisconnected(this, EventArgs.Empty);
         }
 
-        public virtual void OnStreamConnected()
+        public virtual async Task OnStreamConnected()
         {
             Logger.LogDebug("Resource \"{0}\" OnStreamConnected()", Id);
 
             if (StreamConnected != null)
-                StreamConnected(this, EventArgs.Empty);
+                await StreamConnected(this, EventArgs.Empty);
         }
 
-        public virtual void OnStreamEvent(StreamEventArgs e)
+        public virtual async Task OnStreamEvent(StreamEventArgs e)
         {
             Logger.LogDebug("Resource \"{0}\" OnStreamEvent()", Id);
 
             if (StreamEvent != null)
-                StreamEvent(this, e);
+                await StreamEvent(this, e);
         }
 
         public QueueDetails GetQueueDetails()
@@ -206,29 +198,7 @@ namespace SportingSolutions.Udapi.Sdk
             return queueDetails;
         }
 
-        public void SendEcho()
-        {
-            if (string.IsNullOrEmpty(_virtualHost))
-                throw new Exception("virtualHost is not defined");
-
-            var link = State.Links.First(restLink => restLink.Relation == "http://api.sportingsolutions.com/rels/stream/batchecho");
-            var echouri = new Uri(link.Href);
-
-            var streamEcho = new StreamEcho
-            {
-                Host = _virtualHost,
-                Message = Guid.NewGuid() + ";" + DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-            };
-
-            var response = ConnectClient.Request(echouri, RestSharp.Method.POST, streamEcho, UDAPI.Configuration.ContentType, 3000);
-            if (response.ErrorException != null || response.Content == null)
-            {
-                RestErrorHelper.LogRestError(Logger, response, "Error sending echo request");
-                throw new Exception(string.Format("Error calling {0}", echouri), response.ErrorException);
-            }
-        }
-
-        public async Task SendEchoAsync()
+        public async Task SendEcho()
         {
             if (string.IsNullOrEmpty(_virtualHost))
                 throw new Exception("virtualHost is not defined");

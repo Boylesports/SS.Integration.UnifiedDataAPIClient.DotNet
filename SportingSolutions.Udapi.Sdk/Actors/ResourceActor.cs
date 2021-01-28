@@ -19,6 +19,7 @@ using SportingSolutions.Udapi.Sdk.Events;
 using SportingSolutions.Udapi.Sdk.Interfaces;
 using SportingSolutions.Udapi.Sdk.Model.Message;
 using System;
+using System.Threading.Tasks;
 
 namespace SportingSolutions.Udapi.Sdk.Actors
 {
@@ -51,32 +52,32 @@ namespace SportingSolutions.Udapi.Sdk.Actors
 
         private void DisconnectedState()
         {
-            Receive<ConnectMessage>(connectMsg => Connected(connectMsg));
-            Receive<DisconnectMessage>(msg => Disconnect(msg));
+            ReceiveAsync<ConnectMessage>(connectMsg => Connected(connectMsg));
+            ReceiveAsync<DisconnectMessage>(msg => Disconnect(msg));
         }
 
-        private void Disconnect(DisconnectMessage msg)
+        private Task Disconnect(DisconnectMessage msg)
         {
             Logger.LogDebug($"resourceActorId={Id} Disconnection message raised for {msg.Id}");
-            Consumer.OnStreamDisconnected();
+            return Consumer.OnStreamDisconnected();
         }
 
-        private void StreamUpdate(StreamUpdateMessage streamMsg)
+        private Task StreamUpdate(StreamUpdateMessage streamMsg)
         {
             Logger.LogDebug($"resourceActorId={Id} New update arrived for {streamMsg.Id}");
-            Consumer.OnStreamEvent(new StreamEventArgs(streamMsg.Message, streamMsg.ReceivedAt));
+            return Consumer.OnStreamEvent(new StreamEventArgs(streamMsg.Message, streamMsg.ReceivedAt));
         }
 
-        private void Connected(ConnectMessage connectMsg)
+        private async Task Connected(ConnectMessage connectMsg)
         {
-            Consumer.OnStreamConnected();
+            await Consumer.OnStreamConnected();
             Become(BecomeConnected);
         }
 
         private void BecomeConnected()
         {
-            Receive<StreamUpdateMessage>(streamMsg => StreamUpdate(streamMsg));
-            Receive<DisconnectMessage>(msg => Disconnect(msg));
+            ReceiveAsync<StreamUpdateMessage>(streamMsg => StreamUpdate(streamMsg));
+            ReceiveAsync<DisconnectMessage>(msg => Disconnect(msg));
         }
 
         public void StartStreaming(int echoInterval, int echoMaxDelay)

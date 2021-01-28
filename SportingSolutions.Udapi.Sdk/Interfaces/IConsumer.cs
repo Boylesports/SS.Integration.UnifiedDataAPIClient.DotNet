@@ -25,14 +25,12 @@ namespace SportingSolutions.Udapi.Sdk.Interfaces
 
         QueueDetails GetQueueDetails();
 
-        void OnStreamConnected();
+        Task OnStreamConnected();
 
-        void OnStreamDisconnected();
+        Task OnStreamDisconnected();
 
-        void OnStreamEvent(StreamEventArgs e);
+        Task OnStreamEvent(StreamEventArgs e);
 
-        void SendEcho();
-
-        Task SendEchoAsync();
+        Task SendEcho();
     }
 }

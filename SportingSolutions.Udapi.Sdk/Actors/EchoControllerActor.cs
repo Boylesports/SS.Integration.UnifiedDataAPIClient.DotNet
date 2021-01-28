@@ -62,7 +62,7 @@ namespace SportingSolutions.Udapi.Sdk.Actors
             Receive<NewSubscriberMessage>(x => AddConsumer(x.Subscriber));
             Receive<RemoveSubscriberMessage>(x => RemoveConsumer(x.Subscriber));
             Receive<EchoMessage>(x => ProcessEcho(x.Id));
-            ReceiveAsync<SendEchoMessage>(x => CheckEchosAsync());
+            ReceiveAsync<SendEchoMessage>(x => CheckEchos());
             Receive<DisposeMessage>(x => Dispose());
         }
 
@@ -144,7 +144,7 @@ namespace SportingSolutions.Udapi.Sdk.Actors
             }
         }
 
-        private void CheckEchos()
+        private async Task CheckEchos()
         {
             try
             {
@@ -181,52 +181,7 @@ namespace SportingSolutions.Udapi.Sdk.Actors
 
                 invalidConsumers.Clear();
 
-                SendEchos(sendEchoConsumer);
-            }
-            catch (Exception ex)
-            {
-                Logger.LogError("Check Echos has experienced a failure", ex);
-            }
-        }
-
-        private async Task CheckEchosAsync()
-        {
-            try
-            {
-                List<IStreamSubscriber> invalidConsumers = new List<IStreamSubscriber>();
-
-                // acquiring the consumer here prevents to put another lock on the
-                // dictionary
-
-                Logger.LogInformation($"CheckEchos consumersCount={_consumers.Count}");
-
-                IStreamSubscriber sendEchoConsumer = _consumers.Values.FirstOrDefault(_ => _.EchosCountDown > 0)?.Subscriber;
-
-                foreach (var consumer in _consumers)
-                {
-                    if (consumer.Value.EchosCountDown < UDAPI.Configuration.MissedEchos)
-                    {
-                        var msg = $"consumerId={consumer.Key} missed count={UDAPI.Configuration.MissedEchos - consumer.Value.EchosCountDown} echos";
-                        if (consumer.Value.EchosCountDown < 1)
-                        {
-                            Logger.LogWarning($"{msg} and it will be disconnected");
-                            invalidConsumers.Add(consumer.Value.Subscriber);
-                        }
-                        else
-                        {
-                            Logger.LogInformation(msg);
-                        }
-                    }
-                    consumer.Value.EchosCountDown--;
-                }
-
-                // this wil force indirectly a call to EchoManager.RemoveConsumer(consumer)
-                // for the invalid consumers
-                RemoveSubribers(invalidConsumers);
-
-                invalidConsumers.Clear();
-
-                await SendEchosAsync(sendEchoConsumer);
+                await SendEchos(sendEchoConsumer);
             }
             catch (Exception ex)
             {
@@ -243,7 +198,7 @@ namespace SportingSolutions.Udapi.Sdk.Actors
             }
         }
 
-        private void SendEchos(IStreamSubscriber item)
+        private async Task SendEchos(IStreamSubscriber item)
         {
             if (item == null)
             {
@@ -252,25 +207,7 @@ namespace SportingSolutions.Udapi.Sdk.Actors
             try
             {
                 Logger.LogDebug("Sending batch echo");
-                item.Consumer.SendEcho();
-            }
-            catch (Exception e)
-            {
-                Logger.LogError("Error sending echo-request", e);
-            }
-
-        }
-
-        private async Task SendEchosAsync(IStreamSubscriber item)
-        {
-            if (item == null)
-            {
-                return;
-            }
-            try
-            {
-                Logger.LogDebug("Sending batch echo");
-                await item.Consumer.SendEchoAsync();
+                await item.Consumer.SendEcho();
             }
             catch (Exception e)
             {

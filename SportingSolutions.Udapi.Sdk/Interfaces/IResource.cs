@@ -46,7 +46,7 @@ namespace SportingSolutions.Udapi.Sdk.Interfaces
         /// Event raised when the resource succesfully connects 
         /// to the streaming server
         /// </summary>
-        event EventHandler StreamConnected;
+        event AsyncEventHandler StreamConnected;
 
         /// <summary>
         /// 
@@ -58,15 +58,13 @@ namespace SportingSolutions.Udapi.Sdk.Interfaces
         ///        with the streaming server went down
         /// 
         /// </summary>
-        event EventHandler StreamDisconnected;
+        event AsyncEventHandler StreamDisconnected;
 
         /// <summary>
         ///     Event raised when a new update has arrived.
         /// </summary>
-        event EventHandler<StreamEventArgs> StreamEvent;
-
-        [Obsolete]
-        event EventHandler StreamSynchronizationError;
+        /// 
+        event AsyncEventHandler<StreamEventArgs> StreamEvent;
 
         /// <summary>
         ///     Retrieves the current resource's snapshot
@@ -85,13 +83,22 @@ namespace SportingSolutions.Udapi.Sdk.Interfaces
         /// </summary>
         void StartStreaming();
 
-        [Obsolete]
-        void StartStreaming(int echoInterval, int echoMaxDelay);
-
         void PauseStreaming();
 
         void UnPauseStreaming();
 
         void StopStreaming();
+
+        /// <summary>
+        /// And async version of <see cref="EventHandler"/>
+        /// </summary>
+        /// <returns></returns>
+        delegate Task AsyncEventHandler(object sender, EventArgs e);
+
+        /// <summary>
+        /// And async version of <see cref="EventHandler"/>
+        /// </summary>
+        /// <returns></returns>
+        delegate Task AsyncEventHandler<T>(object sender, T v) where T : EventArgs;
     }
 }
